@@ -9,6 +9,8 @@ python tests.py
 import unittest
 
 import topology
+import model
+import network
 
 class TopologyTests(unittest.TestCase):
 	"""
@@ -141,6 +143,35 @@ class TopologyTests(unittest.TestCase):
 		self.assertTrue((1,2) in boards)
 		self.assertTrue((1,3) in boards)
 		self.assertTrue((2,3) in boards)
+
+
+
+class ModelTests(unittest.TestCase):
+	"""
+	Tests the functions of living within the model.
+	"""
+	
+	def test_node(self):
+		n1 = model.Node([11,12])
+		n2 = model.Node([21,22])
+		
+		# Connect two nodes together using different ports on either end
+		n1.connect(11, n2, 21)
+		n2.connect(22, n1, 12)
+		
+		# Check both connections exist and work both ways
+		self.assertEqual(n1.connections[11], (n2, 21))
+		self.assertEqual(n2.connections[21], (n1, 11))
+		self.assertEqual(n1.connections[12], (n2, 22))
+		self.assertEqual(n2.connections[22], (n1, 12))
+		
+		# Disconnect the connections and check this occurred
+		n1.disconnect(12)
+		n2.disconnect(21)
+		self.assertIsNone(n1.connections[11])
+		self.assertIsNone(n2.connections[21])
+		self.assertIsNone(n1.connections[12])
+		self.assertIsNone(n2.connections[22])
 
 
 if __name__=="__main__":
