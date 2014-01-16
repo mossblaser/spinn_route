@@ -174,5 +174,153 @@ class ModelTests(unittest.TestCase):
 		self.assertIsNone(n2.connections[22])
 
 
+class NetworkTests(unittest.TestCase):
+	"""
+	Tests that the various network utility functions generate valid networks as
+	they claim.
+	"""
+	
+	def test_make_chip(self):
+		"""
+		Test that when a chip is created the correct number of cores are made and
+		they are connected to the correct ports of the associated router.
+		"""
+		for num_cores in range(1,18+1):
+			router, cores = network.make_chip(num_cores = num_cores)
+			# The correct number of cores is created
+			self.assertEqual(len(cores), num_cores)
+			
+			# The cores are connected correctly
+			for core in cores:
+				# Core connects to router
+				self.assertEqual( core.connections[model.Core.NETWORK_PORT]
+				                , (router, model.Router.INTERNAL_PORTS[core.core_id])
+				                )
+				# Router connects to core
+				self.assertEqual( router.connections[model.Router.INTERNAL_PORTS[core.core_id]]
+				                , (core, model.Core.NETWORK_PORT)
+				                )
+			
+			# No external ports are connected
+			for port in model.Router.EXTERNAL_PORTS:
+				self.assertIsNone(router.connections[port])
+	
+	
+	def test_fully_connect_chips_singleton_no_wrap_around(self):
+		"""
+		Test that network.fully_connect_chips doesn't add any connections to a
+		singleton chip.
+		"""
+		chips = [network.make_chip()]
+		network.fully_connect_chips(chips)
+		
+		# No external ports are connected
+		for port in model.Router.EXTERNAL_PORTS:
+			self.assertIsNone(chips[0][0].connections[port])
+	
+	
+	def test_fully_connect_chips_singleton_wrap_around(self):
+		"""
+		Test that network.fully_connect_chips adds wrap-around connections for all
+		edges of a single chip.
+		"""
+		chips = [network.make_chip()]
+		network.fully_connect_chips(chips, wrap_around = True)
+		
+		# All connections are wrapped around
+		for port in model.Router.EXTERNAL_PORTS:
+			self.assertEqual( chips[0][0].connections[port]
+			                , (chips[0][0], topology.opposite(port))
+			                )
+	
+	
+	def test_fully_connect_chips_pair_of_chips_no_wrap_around(self):
+		"""
+		Test that a network.fully_connect_chips connects (and leaves disconnected)
+		the correct links when a pair of touching chips are created.
+		"""
+		# Test with the neighbouring chip being on every possible edge.
+		for direction in [ topology.EAST
+		                 , topology.NORTH_EAST
+		                 , topology.NORTH
+		                 , topology.WEST
+		                 , topology.SOUTH_WEST
+		                 , topology.SOUTH
+		                 ]:
+			chips = [ network.make_chip((0,0))
+			        , network.make_chip(topology.to_xy(topology.add_direction((0,0,0), direction)))
+			        ]
+			network.fully_connect_chips(chips)
+			
+			# Only the touching ports are connected
+			for port in model.Router.EXTERNAL_PORTS:
+				if port == direction:
+					# Touching port
+					self.assertEqual( chips[0][0].connections[port]
+					                , (chips[1][0], topology.opposite(port))
+					                )
+					self.assertEqual( chips[1][0].connections[topology.opposite(port)]
+					                , (chips[0][0], port)
+					                )
+				else:
+					# Non-touching port
+					self.assertIsNone(chips[0][0].connections[port])
+					self.assertIsNone(chips[1][0].connections[topology.opposite(port)])
+	
+	
+	def test_make_rectangular_board(self):
+		"""
+		Test that a network.make_rectangular_board creates the appropriate formation
+		of chips.
+		"""
+		for (w,h) in [(1,1), (1,2), (2,1), (2,2)]:
+			chips = network.make_rectangular_board(w,h)
+			positions = [router.position for (router,cores) in chips]
+			
+			# Ensure correct number of nodes
+			self.assertEqual(len(positions), w*h)
+			
+			# Ensure nodes exist in correct places
+			for y in range(h):
+				for x in range(w):
+					self.assertIn((x,y), positions)
+	
+	
+	def test_make_hexagonal_board(self):
+		"""
+		Test that network.make_hexagonal_board creates the appropriate formation of
+		chips.
+		"""
+		for layers in [2,3,4]:
+			chips = network.make_hexagonal_board(layers)
+			ref_positions = list(topology.hexagon(layers))
+			positions = [router.position for (router,cores) in chips]
+			
+			# Ensure correct number of nodes
+			self.assertEqual(len(positions), len(ref_positions))
+			
+			# Ensure nodes exist in correct places
+			for ref_position in ref_positions:
+				self.assertIn(ref_position, positions)
+	
+	
+	def test_make_multiboard_torus(self):
+		"""
+		Test that network.make_multi_board_torus creates the appropriate (i.e.
+		continuous, rectangular) formation of chips.
+		"""
+		for (w,h) in [(1,1), (1,2), (2,1), (2,2)]:
+			chips = network.make_multi_board_torus(w,h)
+			positions = [router.position for (router,cores) in chips]
+			
+			# Ensure correct number of nodes
+			self.assertEqual(len(positions), w*12*h*12)
+			
+			# Ensure nodes exist in correct places
+			for y in range(h*12):
+				for x in range(w*12):
+					self.assertIn((x,y), positions)
+
+
 if __name__=="__main__":
 	unittest.main()
