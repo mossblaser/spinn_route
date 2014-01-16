@@ -7,6 +7,7 @@ python tests.py
 """
 
 import unittest
+import pprint
 
 import topology
 import model
@@ -320,6 +321,49 @@ class UtilTests(unittest.TestCase):
 			for y in range(h*12):
 				for x in range(w*12):
 					self.assertIn((x,y), positions)
+	
+	
+	def test_get_all_routes_empty(self):
+		"""
+		Test that util.get_all_routes finds none in a system without any...
+		"""
+		chips = util.make_rectangular_board()
+		self.assertEqual(util.get_all_routes(chips), {})
+	
+	
+	def test_get_all_routes_empty(self):
+		"""
+		Test that util.get_all_routes finds some in a system containing some
+		"""
+		chips = util.make_rectangular_board(2,2)
+		
+		# A set of test routes
+		ref_routes = {
+			# Unicast self loop
+			model.Route(0): (chips[0][1][0], [chips[0][1][0]]),
+			
+			# Broadcast to all cores on a chip
+			model.Route(1): (chips[0][1][0], chips[0][1]),
+			
+			# Multicast messages from everyone from them to the next two chips
+			model.Route(2): (chips[0][1][0], [chips[1][1][0], chips[1][1][1]]),
+			model.Route(3): (chips[1][1][0], [chips[2][1][0], chips[3][1][1]]),
+			model.Route(4): (chips[2][1][0], [chips[3][1][0], chips[0][1][1]]),
+			model.Route(5): (chips[3][1][0], [chips[0][1][0], chips[1][1][1]]),
+		}
+		
+		# Add the reference routes to the network
+		for route, (source, sinks) in ref_routes.iteritems():
+			source.sources.append(route)
+			for sink in sinks:
+				sink.sinks.append(route)
+		
+		# Check that the routes found match the routes added
+		found_routes = util.get_all_routes(chips)
+		self.assertEqual(len(found_routes), len(ref_routes))
+		for route, (source, sinks) in found_routes.iteritems():
+			self.assertEqual(ref_routes[route][0], source)
+			self.assertEqual(set(ref_routes[route][1]), set(sinks))
 
 
 if __name__=="__main__":

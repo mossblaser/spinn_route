@@ -117,3 +117,27 @@ def make_multi_board_torus(width = 1, height = 1, layers = 4, num_cores = 18):
 	fully_connect_chips(chips, wrap_around = True)
 	
 	return chips
+
+
+def get_all_routes(chips):
+	"""
+	Given a set of chips (i.e. (router, [cores]) tuples), return a dictionary
+	{Route: (source_core, [sink_cores]), ...}.
+	"""
+	
+	routes = {}
+	
+	# Find all the routes (and sources)
+	for (router, cores) in chips:
+		for core in cores:
+			for route in core.sources:
+				assert(route not in routes)
+				routes[route] = (core, [])
+	
+	# Fill in the sinks
+	for (router, cores) in chips:
+		for core in cores:
+			for route in core.sinks:
+				routes[route][1].append(core)
+	
+	return routes
