@@ -340,31 +340,113 @@ class UtilTests(unittest.TestCase):
 		# A set of test routes
 		ref_routes = {
 			# Unicast self loop
-			model.Route(0): (chips[0][1][0], [chips[0][1][0]]),
+			model.Route(0): (chips[0][1][0], set([chips[0][1][0]])),
 			
 			# Broadcast to all cores on a chip
-			model.Route(1): (chips[0][1][0], chips[0][1]),
+			model.Route(1): (chips[0][1][0], set(chips[0][1])),
 			
 			# Multicast messages from everyone from them to the next two chips
-			model.Route(2): (chips[0][1][0], [chips[1][1][0], chips[1][1][1]]),
-			model.Route(3): (chips[1][1][0], [chips[2][1][0], chips[3][1][1]]),
-			model.Route(4): (chips[2][1][0], [chips[3][1][0], chips[0][1][1]]),
-			model.Route(5): (chips[3][1][0], [chips[0][1][0], chips[1][1][1]]),
+			model.Route(2): (chips[0][1][0], set([chips[1][1][0], chips[1][1][1]])),
+			model.Route(3): (chips[1][1][0], set([chips[2][1][0], chips[3][1][1]])),
+			model.Route(4): (chips[2][1][0], set([chips[3][1][0], chips[0][1][1]])),
+			model.Route(5): (chips[3][1][0], set([chips[0][1][0], chips[1][1][1]])),
 		}
 		
 		# Add the reference routes to the network
 		for route, (source, sinks) in ref_routes.iteritems():
-			source.sources.append(route)
+			source.sources.add(route)
 			for sink in sinks:
-				sink.sinks.append(route)
+				sink.sinks.add(route)
 		
 		# Check that the routes found match the routes added
 		found_routes = util.get_all_routes(chips)
 		self.assertEqual(len(found_routes), len(ref_routes))
 		for route, (source, sinks) in found_routes.iteritems():
 			self.assertEqual(ref_routes[route][0], source)
-			self.assertEqual(set(ref_routes[route][1]), set(sinks))
-
+			self.assertEqual(ref_routes[route][1], sinks)
+	
+	
+	def test_add_route(self):
+		"""
+		Test that util.add_route successfully works for a simple multicast route (and
+		that defining the route twice has no ill-effects).
+		"""
+		chips = util.make_rectangular_board(2,2)
+		chip_map = {}
+		for (router, core) in chips:
+			chip_map[router.position] = (router, core)
+		
+		# Make a path travelling round the system (do it twice to make sure nothing
+		# gets duplicated)
+		route = model.Route(0)
+		for _ in range(2):
+			util.add_route( route
+			              , [ chip_map[(0,0)][1][0]
+			                , chip_map[(0,0)][0]
+			                , chip_map[(0,1)][0]
+			                , chip_map[(1,1)][0]
+			                , chip_map[(1,0)][0]
+			                , chip_map[(1,0)][1][17]
+			                ]
+			              )
+			util.add_route( route
+			              , [ chip_map[(0,0)][1][0]
+			                , chip_map[(0,0)][0]
+			                , chip_map[(0,1)][0]
+			                , chip_map[(1,1)][0]
+			                , chip_map[(1,1)][1][17]
+			                ]
+			              )
+		
+		# Check that the route was added in the appropriate sink/source and nowhere
+		# else
+		for (position, core) in sum(( list((router.position, core) for core in cores)
+		                              for (router,cores) in chips
+		                            ), []):
+			# Source should be in chip (0,0)'s 0th core
+			if position == (0,0) and core.core_id == 0:
+				self.assertEqual(core.sources, set([route]))
+			else:
+				self.assertEqual(core.sources, set())
+			
+			# Sink should be in chips (1,0)'s and (1,1)'s 17th core
+			if position in ((1,0), (1,1)) and core.core_id == 17:
+				self.assertEqual(core.sinks, set([route]))
+			else:
+				self.assertEqual(core.sinks, set())
+		
+		
+		# Check that all connecting edges between routers are valid (i.e. face in
+		# opposite directions and make sense)
+		for router, cores in chips:
+			for route, (input_port, output_ports) in router.routes.iteritems():
+				# Test the input has a corresponding output in the router/core
+				if input_port in model.Router.INTERNAL_PORTS:
+					# If a route is from a core, make sure the core knows about it
+					core = router.connections[input_port][0]
+					self.assertIn(route, core.sources)
+				else:
+					# Check the corresponding router has an output for this route pointing
+					# at this router.
+					other_router = router.connections[input_port][0]
+					self.assertIn( router.connections[input_port][1]
+					             , other_router.routes[route][1]
+					             )
+				
+				# Test all outputs have a coresponding input in another router/core
+				for output_port in output_ports:
+					if output_port in model.Router.INTERNAL_PORTS:
+						# If a route is to a core, make sure the core knows about it
+						core = router.connections[output_port][0]
+						self.assertIn(route, core.sinks)
+					else:
+						# Check the corresponding router has an input for this route pointing
+						# from this router.
+						other_router = router.connections[output_port][0]
+						self.assertEqual( router.connections[output_port][1]
+						                , other_router.routes[route][0]
+						                )
+		
 
 if __name__=="__main__":
 	unittest.main()

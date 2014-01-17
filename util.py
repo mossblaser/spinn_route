@@ -132,12 +132,86 @@ def get_all_routes(chips):
 		for core in cores:
 			for route in core.sources:
 				assert(route not in routes)
-				routes[route] = (core, [])
+				routes[route] = (core, set())
 	
 	# Fill in the sinks
 	for (router, cores) in chips:
 		for core in cores:
 			for route in core.sinks:
-				routes[route][1].append(core)
+				routes[route][1].add(core)
 	
 	return routes
+
+
+def add_route(route, node_sequence):
+	r"""
+	Given a sequence of Nodes of the form [Core, Router, Router, ..., Core], fill
+	in the routing table entries in the routers involved and also the route
+	source/sink entries in the Cores in order to facilitate connectivity between
+	the nodes. The sequence must be between a series of connected Cores/Routers
+	from exactly one source Core to one sink Core.
+	
+	This means that to connect a multicast route, this function must be called
+	multiple times for each branch. For example, to connect the following:
+		
+		            ,---> C --> D
+		           /
+		A --> B --<
+		           \
+		            `---> E --> F
+	
+	The function should be called twice such as::
+		
+		add_router_entries(route, [A, B, C, D])
+		add_router_entries(route, [A, B, E, F])
+	"""
+	
+	# Produce a sliding window which iterates over the sequence showing the
+	# predecessor and successor to each router.
+	ts0 = iter(node_sequence)
+	ts1 = iter(node_sequence)
+	ts1.next()
+	ts2 = iter(node_sequence)
+	ts2.next()
+	ts2.next()
+	sliding_window = zip(ts0, ts1, ts2)
+	
+	def get_port(router, node):
+		"""
+		Return the port identifier for the port connecting the given router to the
+		given node. If no port connects to this node, throw an Exception.
+		"""
+		for port, connection in router.connections.iteritems():
+			if connection is not None and connection[0] == node:
+				return port
+		
+		raise Exception("No connection exists between %s and %s " +
+		                "and so no route can be created directly between them!"%(
+		                  repr(router), repr(node)
+		                ))
+		
+	
+	# Add router entries
+	for prev_node, router, next_node in sliding_window:
+		if route not in router.routes:
+			router.routes[route] = (
+				# Incoming port
+				get_port(router, prev_node),
+				# Outgoing port
+				[get_port(router, next_node)]
+			)
+		else:
+			# This route already passes through this node, it may fork here or remain
+			# the same.
+			
+			# Check that the route only ever enters in one direction (otherwise it
+			# does not form a tree which all 1:N multicast routes must).
+			assert(router.routes[route][0] == get_port(router, prev_node))
+			
+			outgoing_port = get_port(router, next_node)
+			if outgoing_port not in router.routes[route][1]:
+				router.routes[route][1].append(outgoing_port)
+	
+	# Add core source/sink entries
+	node_sequence[0].sources.add(route)
+	node_sequence[-1].sinks.add(route)

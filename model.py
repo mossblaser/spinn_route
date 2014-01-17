@@ -78,10 +78,10 @@ class Core(Node):
 		self.core_id = core_id
 		
 		# The set of Routes sourced at this core
-		self.sources = []
+		self.sources = set()
 		
 		# The set of Routes sinked at this core
-		self.sinks = []
+		self.sinks = set()
 	
 	
 	def __repr__(self):
@@ -116,7 +116,7 @@ class Router(Node):
 		self.position = position
 		
 		# A dictionary of routes flowing through the router of the form:
-		# {Route: (incoming_port, [outgoing_ports]), ...}.
+		# {Route: (incoming_port, set(outgoing_ports)), ...}.
 		self.routes = {}
 	
 	
