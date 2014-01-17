@@ -98,6 +98,34 @@ class TopologyTests(unittest.TestCase):
 		self.assertEqual(topology.to_shortest_path(topology.to_xyz((1,1))), (0,0,-1))
 	
 	
+	def test_to_torus_shortest_path(self):
+		# Test exhaustively for various system sizes. Check that the results match
+		# the theoretical length described by Xiao in "Hexagonal and Pruned Torus
+		# Networks as Cayley Graphs" (2004)
+		for system_size in [ (1,1) , (2,2) , (3,3), (4,4)
+		                   , (1,2) , (2,1)
+		                   , (1,3) , (3,1)
+		                   ]:
+			for y1 in range(system_size[1]):
+				for x1 in range(system_size[0]):
+					for y2 in range(system_size[1]):
+						for x2 in range(system_size[0]):
+							l = system_size[0]
+							k = system_size[1]
+							a = ((x2-x1) + l) % l
+							b = ((y2-y1) + k) % k
+							dist = min(min(min(max(a, b), max(l - a, k - b)), l - a + b), k + a - b);
+							
+							self.assertEqual( dist
+							                , topology.manhattan(
+							                    topology.to_torus_shortest_path( (x1, y1)
+							                                                   , (x2, y2)
+							                                                   , system_size
+							                                                   )
+							                  )
+							                )
+	
+	
 	def test_hexagon(self):
 		it = topology.hexagon(2)
 		
@@ -446,7 +474,7 @@ class UtilTests(unittest.TestCase):
 						self.assertEqual( router.connections[output_port][1]
 						                , other_router.routes[route][0]
 						                )
-		
+
 
 if __name__=="__main__":
 	unittest.main()

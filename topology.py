@@ -107,6 +107,39 @@ def to_xyz(vector):
 	return (vector[0], vector[1], 0)
 
 
+def to_torus_shortest_path(source, target, system_size):
+	"""
+	Given two 2D coordinates (source and target) and the size of the system,
+	return the 3D vector giving the shortest path in a torus of the given size
+	from the source to the target.
+	"""
+	
+	# A terrible hack (inherited from gollywhomper). Re-center the world either so
+	# the source is in the bottom left corner, the center or the top/right of the
+	# system. For each, compute the shortest vector in the same way you would for
+	# a normal grid. Pick the one of these which wins.
+	best_path = None
+	for center in [ (0,0)
+	              , (system_size[0]/2, system_size[1]/2)
+	              , (system_size[0]-1, system_size[1]-1)
+	              ]:
+		s = (center[0], center[1], 0)
+		t = ( ((target[0] - source[0]) + center[0]) % system_size[0]
+		    , ((target[1] - source[1]) + center[1]) % system_size[1]
+		    , 0
+		    )
+		
+		path = to_shortest_path(( t[0] - s[0]
+		                        , t[1] - s[1]
+		                        , t[2] - s[2]
+		                        ))
+		# Keep the best candidate
+		if best_path is None or manhattan(path) < manhattan(best_path):
+			best_path = path
+	
+	return best_path
+
+
 ################################################################################
 # Hexagon Generation
 ################################################################################
