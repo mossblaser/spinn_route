@@ -12,6 +12,7 @@ import pprint
 import topology
 import model
 import util
+import routers
 
 class TopologyTests(unittest.TestCase):
 	"""
@@ -181,26 +182,29 @@ class ModelTests(unittest.TestCase):
 	"""
 	
 	def test_node(self):
-		n1 = model.Node([11,12])
-		n2 = model.Node([21,22])
+		n1 = model.Node([12,13])
+		n2 = model.Node([21,23])
+		n3 = model.Node([31,32])
 		
-		# Connect two nodes together using different ports on either end
-		n1.connect(11, n2, 21)
-		n2.connect(22, n1, 12)
+		# Connect three nodes together in a chain
+		n1.connect(12, n2, 21)
+		n2.connect(23, n3, 32)
 		
 		# Check both connections exist and work both ways
-		self.assertEqual(n1.connections[11], (n2, 21))
-		self.assertEqual(n2.connections[21], (n1, 11))
-		self.assertEqual(n1.connections[12], (n2, 22))
-		self.assertEqual(n2.connections[22], (n1, 12))
+		self.assertEqual(n1.connections[12], n2)
+		self.assertEqual(n2.connections[21], n1)
+		self.assertEqual(n2.connections[23], n3)
+		self.assertEqual(n3.connections[32], n2)
 		
 		# Disconnect the connections and check this occurred
-		n1.disconnect(12)
 		n2.disconnect(21)
-		self.assertIsNone(n1.connections[11])
-		self.assertIsNone(n2.connections[21])
+		n3.disconnect(32)
 		self.assertIsNone(n1.connections[12])
-		self.assertIsNone(n2.connections[22])
+		self.assertIsNone(n1.connections[13])
+		self.assertIsNone(n2.connections[21])
+		self.assertIsNone(n2.connections[23])
+		self.assertIsNone(n3.connections[31])
+		self.assertIsNone(n3.connections[32])
 
 
 class UtilTests(unittest.TestCase):
@@ -223,11 +227,11 @@ class UtilTests(unittest.TestCase):
 			for core in cores:
 				# Core connects to router
 				self.assertEqual( core.connections[model.Core.NETWORK_PORT]
-				                , (router, model.Router.INTERNAL_PORTS[core.core_id])
+				                , router
 				                )
 				# Router connects to core
 				self.assertEqual( router.connections[model.Router.INTERNAL_PORTS[core.core_id]]
-				                , (core, model.Core.NETWORK_PORT)
+				                , core
 				                )
 			
 			# No external ports are connected
@@ -259,7 +263,7 @@ class UtilTests(unittest.TestCase):
 		# All connections are wrapped around
 		for port in model.Router.EXTERNAL_PORTS:
 			self.assertEqual( chips[0][0].connections[port]
-			                , (chips[0][0], topology.opposite(port))
+			                , chips[0][0]
 			                )
 	
 	
@@ -286,10 +290,10 @@ class UtilTests(unittest.TestCase):
 				if port == direction:
 					# Touching port
 					self.assertEqual( chips[0][0].connections[port]
-					                , (chips[1][0], topology.opposite(port))
+					                , chips[1][0]
 					                )
 					self.assertEqual( chips[1][0].connections[topology.opposite(port)]
-					                , (chips[0][0], port)
+					                , chips[0][0]
 					                )
 				else:
 					# Non-touching port
@@ -451,13 +455,13 @@ class UtilTests(unittest.TestCase):
 				# Test the input has a corresponding output in the router/core
 				if input_port in model.Router.INTERNAL_PORTS:
 					# If a route is from a core, make sure the core knows about it
-					core = router.connections[input_port][0]
+					core = router.connections[input_port]
 					self.assertIn(route, core.sources)
 				else:
 					# Check the corresponding router has an output for this route pointing
 					# at this router.
-					other_router = router.connections[input_port][0]
-					self.assertIn( router.connections[input_port][1]
+					other_router = router.connections[input_port]
+					self.assertIn( topology.opposite(input_port)
 					             , other_router.routes[route][1]
 					             )
 				
@@ -465,15 +469,127 @@ class UtilTests(unittest.TestCase):
 				for output_port in output_ports:
 					if output_port in model.Router.INTERNAL_PORTS:
 						# If a route is to a core, make sure the core knows about it
-						core = router.connections[output_port][0]
+						core = router.connections[output_port]
 						self.assertIn(route, core.sinks)
 					else:
 						# Check the corresponding router has an input for this route pointing
 						# from this router.
-						other_router = router.connections[output_port][0]
-						self.assertEqual( router.connections[output_port][1]
+						other_router = router.connections[output_port]
+						self.assertEqual( topology.opposite(output_port)
 						                , other_router.routes[route][0]
 						                )
+
+
+
+class RoutersTests(unittest.TestCase):
+	"""
+	Tests the routing algorithms.
+	"""
+	
+	def test_dor_perfect_case(self):
+		"""
+		Test dimension-order-routing in the case where routing should be possible.
+		"""
+		
+		width  = 5
+		height = 5
+		
+		port_to_dimension = {
+			topology.EAST: 0,
+			topology.WEST: 0,
+			topology.NORTH: 1,
+			topology.SOUTH: 1,
+			topology.NORTH_EAST: 2,
+			topology.SOUTH_WEST: 2,
+		}
+		
+		for wrap_around in (True, False):
+			chips = util.make_rectangular_board(width, height, wrap_around = wrap_around)
+			for dimension_order in ( (0,1,2), (2,1,0) ):
+				for route, source, sinks in ( # Self-loop
+				                              (model.Route(0), chips[0][1][0], (  chips[0][1][0], )),
+				                              # XXX: The following assumes chips are ordered row-by-row
+				                              # One-to-one (same row)
+				                              (model.Route(1), chips[0][1][0], (  chips[4][1][0], )),
+				                              # One-to-one (different row)
+				                              (model.Route(2), chips[0][1][0], (  chips[5][1][0], )),
+				                              # One-to-one (may use wrap-around)
+				                              (model.Route(3), chips[0][1][0], ( chips[24][1][0], )),
+				                              # One-to-N
+				                              (model.Route(4), chips[0][1][0], (  chips[0][1][0]
+				                                                               ,  chips[4][1][0]
+				                                                               , chips[20][1][0]
+				                                                               , chips[24][1][0]
+				                                                               )),
+				                            ):
+					node_sequences, unrouted_sinks = \
+						routers.dimension_order_route(route, source, sinks, chips
+						                             , use_wrap_around = wrap_around
+						                             , dimension_order = dimension_order
+						                             )
+					
+					# Nothing should be unroutable
+					self.assertFalse(unrouted_sinks)
+					
+					# Should be one route per sink
+					self.assertEqual(len(sinks), len(node_sequences))
+					
+					# All node sequences should start from the source
+					for node_sequence in node_sequences:
+						self.assertEqual(node_sequence[0], source)
+					
+					sinks_routed = set()
+					for node_sequence in node_sequences:
+						sequence_sink = node_sequence[-1]
+						# Each sink must not have multiple node sequences leading to it
+						self.assertNotIn(sequence_sink, sinks_routed)
+						sinks_routed.add(sequence_sink)
+					
+					# Every sink must have node sequence leading to it
+					self.assertEqual(set(sinks), sinks_routed)
+					
+					# Test that the route follows the order of dimensions required
+					for node_sequence in node_sequences:
+						dimensions = list(dimension_order)
+						for step in xrange(1, len(node_sequence) - 2):
+							router = node_sequence[step]
+							next_router = node_sequence[step+1]
+							
+							# Find the port to the next router
+							for port, next_router_ in router.connections.iteritems():
+								if next_router_ == next_router:
+									break
+								port = None
+							
+							# Whenever the direction changes, it must change to a direction
+							# next in the ordering
+							while dimensions[0] != port_to_dimension[port]:
+								dimensions.pop(0)
+								self.assertTrue(dimensions)
+	
+	
+	def test_dor_dead_links(self):
+		"""
+		Test dimension-order-routing in the case where routing is not possible.
+		"""
+		# Create a square system with a hole in the x-axis for the 0th row of chips.
+		chips = util.make_rectangular_board(3, 1)
+		# XXX: Assumes order of the output of make_rectangular_board
+		chips[1][0].connections[topology.EAST] = None
+		
+		# Should not be able to route along the x axis of the system.
+		node_sequences, unrouted_sinks = \
+			routers.dimension_order_route( model.Route(0)
+			                             , chips[0][1][0]
+			                             , [chips[2][1][0]]
+			                             , chips
+			                             , use_wrap_around = False
+			                             , dimension_order = (0,1,2)
+			                             )
+		
+		self.assertFalse(node_sequences)
+		self.assertEqual(len(unrouted_sinks), 1)
+
 
 
 if __name__=="__main__":

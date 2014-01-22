@@ -32,7 +32,7 @@ class Node(object):
 		Takes a list of port identifiers and sets those ports to disconnected.
 		"""
 		
-		# A set of (bidirectional) links of the form {Port: (Node, Port)}.
+		# A set of (bidirectional) links of the form {Port: Node}.
 		self.connections = {}
 		for port in ports:
 			self.connections[port] = None
@@ -46,8 +46,8 @@ class Node(object):
 		assert(self.connections[port] is None)
 		assert(other.connections[other_port] is None)
 		
-		self.connections[port] = (other, other_port)
-		other.connections[other_port] = (self, port)
+		self.connections[port] = other
+		other.connections[other_port] = self
 	
 	
 	def disconnect(self, port):
@@ -56,8 +56,14 @@ class Node(object):
 		"""
 		# Check that the specified connection exists
 		assert(self.connections[port] is not None)
-		other, other_port = self.connections[port]
-		assert(other.connections[other_port] == (self, port))
+		other = self.connections[port]
+		
+		# Find the port at the other end of the connection (and check it is
+		# connected)
+		for other_port, other_ in other.connections.iteritems():
+			if other_ == self:
+				break
+		assert(other.connections[other_port] == self)
 		
 		self.connections[port] = None
 		other.connections[other_port] = None
@@ -85,7 +91,7 @@ class Core(Node):
 	
 	
 	def __repr__(self):
-		return "Core(%s)<->%s"%(repr(self.core_id), repr(self.connections[Core.NETWORK_PORT][0]))
+		return "Core(%s)<->%s"%(repr(self.core_id), repr(self.connections[Core.NETWORK_PORT]))
 
 
 

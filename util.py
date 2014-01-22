@@ -8,6 +8,13 @@ import model
 import topology
 
 
+def core_to_router(core):
+	"""
+	Given a core, return the associated router.
+	"""
+	return core.connections[model.Core.NETWORK_PORT]
+
+
 def make_chip(chip_position = (0,0), chip_board = (0,0), num_cores = 18):
 	"""
 	Create a single, multi-core SpiNNaker chip. Returns a tuple (router, [cores]).
@@ -56,11 +63,11 @@ def fully_connect_chips(chips, wrap_around = False):
 				router.connect(direction, routers[(next_x, next_y)], topology.opposite(direction))
 
 
-def make_rectangular_board(width = 2, height = 2, board = (0,0), num_cores = 18):
+def make_rectangular_board(width = 2, height = 2, wrap_around = False, board = (0,0), num_cores = 18):
 	"""
-	Produce a system containing a rectangular system of chips (without wrap-around
-	links) of a given width and height. Defaults to a 2x2 board (like the SpiNN-3
-	"Bunnie Bot" boards).
+	Produce a system containing a rectangular system of chips (optionally with
+	wrap-around links) of a given width and height. Defaults to a 2x2 board (like
+	the SpiNN-3 "Bunnie Bot" boards).
 	"""
 	
 	chips = []
@@ -69,7 +76,7 @@ def make_rectangular_board(width = 2, height = 2, board = (0,0), num_cores = 18)
 		for x in range(width):
 			chips.append(make_chip((x,y), board, num_cores))
 	
-	fully_connect_chips(chips)
+	fully_connect_chips(chips, wrap_around = wrap_around)
 	
 	return chips
 
@@ -143,6 +150,22 @@ def get_all_routes(chips):
 	return routes
 
 
+def is_path_connected(node_sequence):
+	"""
+	Given a sequence of Nodes (i.e. Cores and Routers), test whether it is
+	possible to route a packet in exactly this sequence.
+	"""
+	
+	i1 = iter(node_sequence)
+	i2 = iter(node_sequence)
+	i2.next()
+	
+	for node, next_node in zip(i1, i2):
+		if next_node not in node.connections.itervalues():
+			return False
+	return True
+
+
 def add_route(route, node_sequence):
 	r"""
 	Given a sequence of Nodes of the form [Core, Router, Router, ..., Core], fill
@@ -182,12 +205,12 @@ def add_route(route, node_sequence):
 		given node. If no port connects to this node, throw an Exception.
 		"""
 		for port, connection in router.connections.iteritems():
-			if connection is not None and connection[0] == node:
+			if connection == node:
 				return port
 		
-		raise Exception("No connection exists between %s and %s " +
-		                "and so no route can be created directly between them!"%(
-		                  repr(router), repr(node)
+		raise Exception(("No connection exists between %s and %s " +
+		                 "and so no route can be created directly between them!")%(
+		                    repr(router), repr(node)
 		                ))
 		
 	
