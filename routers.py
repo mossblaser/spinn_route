@@ -23,7 +23,7 @@ Returns a two values:
 
 import operator
 
-import util
+import model
 import topology
 
 
@@ -49,8 +49,8 @@ def dimension_order_route(route, source, sinks, chips, use_wrap_around = False, 
 	unrouted_sinks = []
 	
 	for sink in sinks:
-		source_pos = util.core_to_router(source).position
-		sink_pos   = util.core_to_router(sink).position
+		source_pos = model.core_to_router(source).position
+		sink_pos   = model.core_to_router(sink).position
 		
 		# Find the shortest vector from the source to the sink
 		if use_wrap_around:
@@ -61,7 +61,7 @@ def dimension_order_route(route, source, sinks, chips, use_wrap_around = False, 
 			                                                           , source_pos
 			                                                           ))))
 		
-		node_sequence = [source, util.core_to_router(source)]
+		node_sequence = [source, model.core_to_router(source)]
 		
 		# Route down each dimension in the given order
 		for dimension in dimension_order:
@@ -87,7 +87,7 @@ def dimension_order_route(route, source, sinks, chips, use_wrap_around = False, 
 		node_sequence.append(sink)
 		
 		# Add the route
-		if util.is_path_connected(node_sequence):
+		if model.is_path_connected(node_sequence):
 			node_sequences.append(node_sequence)
 		else:
 			unrouted_sinks.append(sink)
