@@ -36,14 +36,10 @@ def dimension_order_route(route, source, sinks, chips, use_wrap_around = False, 
 	This routing algorithm does not attempt to route around dead links/cores and
 	so some routes may fail in the presence of network errors.
 	"""
-	# Generate a look-up from position to router.
-	routers = {}
-	for router, cores in chips:
-		routers[router.position] = router
 	
 	# Calculate the bounds of the system's size (in case wrap_around is used)
-	width  = max(x for (x,y) in routers.iterkeys()) + 1
-	height = max(y for (x,y) in routers.iterkeys()) + 1
+	width  = max(x for (x,y) in chips.iterkeys()) + 1
+	height = max(y for (x,y) in chips.iterkeys()) + 1
 	
 	node_sequences = []
 	unrouted_sinks = []
@@ -81,7 +77,7 @@ def dimension_order_route(route, source, sinks, chips, use_wrap_around = False, 
 				x %= width
 				y %= height
 				
-				node_sequence.append(routers[(x,y)])
+				node_sequence.append(chips[(x,y)][0])
 		
 		# Add the sink
 		node_sequence.append(sink)

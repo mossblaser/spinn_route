@@ -256,20 +256,20 @@ class UtilTests(unittest.TestCase):
 		chips = model.make_rectangular_board(4,1)
 		
 		for is_connected, path in [ # Self-loop
-		                            (True, [chips[0][1][0], chips[0][0], chips[0][1][0]]),
+		                            (True, [chips[(0,0)][1][0], chips[(0,0)][0], chips[(0,0)][1][0]]),
 		                            # From one end to another
-		                            (True, [ chips[0][1][10], chips[0][0], chips[1][0]
-		                                   , chips[2][0], chips[3][0], chips[3][1][11]
+		                            (True, [ chips[(0,0)][1][10], chips[(0,0)][0], chips[(1,0)][0]
+		                                   , chips[(2,0)][0], chips[(3,0)][0], chips[(3,0)][1][11]
 		                                   ]),
 		                            # Reverse direction...
-		                            (True, [ chips[3][1][10], chips[3][0], chips[2][0]
-		                                   , chips[1][0], chips[0][0], chips[0][1][11]
+		                            (True, [ chips[(3,0)][1][10], chips[(3,0)][0], chips[(2,0)][0]
+		                                   , chips[(1,0)][0], chips[(0,0)][0], chips[(0,0)][1][11]
 		                                   ]),
 		                            # Self loop without router
-		                            (False, [chips[0][1][0], chips[0][1][0]]),
+		                            (False, [chips[(0,0)][1][0], chips[(0,0)][1][0]]),
 		                            # From one chip to another non-adjacent chip
-		                            (False, [ chips[0][1][10], chips[0][0]
-		                                    , chips[2][0], chips[2][1][11]
+		                            (False, [ chips[(0,0)][1][10], chips[(0,0)][0]
+		                                    , chips[(2,0)][0], chips[(2,0)][1][11]
 		                                    ]),
 		                          ]:
 			self.assertEqual(is_connected, model.is_path_connected(path))
@@ -280,12 +280,12 @@ class UtilTests(unittest.TestCase):
 		Test that model.fully_connect_chips doesn't add any connections to a
 		singleton chip.
 		"""
-		chips = [model.make_chip()]
+		chips = {(0,0):model.make_chip()}
 		model.fully_connect_chips(chips)
 		
 		# No external ports are connected
 		for port in model.Router.EXTERNAL_PORTS:
-			self.assertIsNone(chips[0][0].connections[port])
+			self.assertIsNone(chips[(0,0)][0].connections[port])
 	
 	
 	def test_fully_connect_chips_singleton_wrap_around(self):
@@ -293,13 +293,13 @@ class UtilTests(unittest.TestCase):
 		Test that model.fully_connect_chips adds wrap-around connections for all
 		edges of a single chip.
 		"""
-		chips = [model.make_chip()]
+		chips = {(0,0):model.make_chip()}
 		model.fully_connect_chips(chips, wrap_around = True)
 		
 		# All connections are wrapped around
 		for port in model.Router.EXTERNAL_PORTS:
-			self.assertEqual( chips[0][0].connections[port]
-			                , chips[0][0]
+			self.assertEqual( chips[(0,0)][0].connections[port]
+			                , chips[(0,0)][0]
 			                )
 	
 	
@@ -316,25 +316,26 @@ class UtilTests(unittest.TestCase):
 		                 , topology.SOUTH_WEST
 		                 , topology.SOUTH
 		                 ]:
-			chips = [ model.make_chip((0,0))
-			        , model.make_chip(topology.to_xy(topology.add_direction((0,0,0), direction)))
-			        ]
+			other_chip_position = topology.to_xy(topology.add_direction((0,0,0), direction))
+			chips = { (0,0)               : model.make_chip((0,0))
+			        , other_chip_position : model.make_chip(other_chip_position)
+			        }
 			model.fully_connect_chips(chips)
 			
 			# Only the touching ports are connected
 			for port in model.Router.EXTERNAL_PORTS:
 				if port == direction:
 					# Touching port
-					self.assertEqual( chips[0][0].connections[port]
-					                , chips[1][0]
+					self.assertEqual( chips[(0,0)][0].connections[port]
+					                , chips[other_chip_position][0]
 					                )
-					self.assertEqual( chips[1][0].connections[topology.opposite(port)]
-					                , chips[0][0]
+					self.assertEqual( chips[other_chip_position][0].connections[topology.opposite(port)]
+					                , chips[(0,0)][0]
 					                )
 				else:
 					# Non-touching port
-					self.assertIsNone(chips[0][0].connections[port])
-					self.assertIsNone(chips[1][0].connections[topology.opposite(port)])
+					self.assertIsNone(chips[(0,0)][0].connections[port])
+					self.assertIsNone(chips[other_chip_position][0].connections[topology.opposite(port)])
 	
 	
 	def test_make_rectangular_board(self):
@@ -344,15 +345,14 @@ class UtilTests(unittest.TestCase):
 		"""
 		for (w,h) in [(1,1), (1,2), (2,1), (2,2)]:
 			chips = model.make_rectangular_board(w,h)
-			positions = [router.position for (router,cores) in chips]
 			
 			# Ensure correct number of nodes
-			self.assertEqual(len(positions), w*h)
+			self.assertEqual(len(chips), w*h)
 			
 			# Ensure nodes exist in correct places
 			for y in range(h):
 				for x in range(w):
-					self.assertIn((x,y), positions)
+					self.assertIn((x,y), chips.keys())
 	
 	
 	def test_make_hexagonal_board(self):
@@ -363,14 +363,13 @@ class UtilTests(unittest.TestCase):
 		for layers in [2,3,4]:
 			chips = model.make_hexagonal_board(layers)
 			ref_positions = list(topology.hexagon(layers))
-			positions = [router.position for (router,cores) in chips]
 			
 			# Ensure correct number of nodes
-			self.assertEqual(len(positions), len(ref_positions))
+			self.assertEqual(len(chips), len(ref_positions))
 			
 			# Ensure nodes exist in correct places
 			for ref_position in ref_positions:
-				self.assertIn(ref_position, positions)
+				self.assertIn(ref_position, chips.keys())
 	
 	
 	def test_make_multiboard_torus(self):
@@ -380,15 +379,14 @@ class UtilTests(unittest.TestCase):
 		"""
 		for (w,h) in [(1,1), (1,2), (2,1), (2,2)]:
 			chips = model.make_multi_board_torus(w,h)
-			positions = [router.position for (router,cores) in chips]
 			
 			# Ensure correct number of nodes
-			self.assertEqual(len(positions), w*12*h*12)
+			self.assertEqual(len(chips), w*12*h*12)
 			
 			# Ensure nodes exist in correct places
 			for y in range(h*12):
 				for x in range(w*12):
-					self.assertIn((x,y), positions)
+					self.assertIn((x,y), chips.keys())
 	
 	
 	def test_get_all_routes_empty(self):
@@ -408,16 +406,16 @@ class UtilTests(unittest.TestCase):
 		# A set of test routes
 		ref_routes = {
 			# Unicast self loop
-			model.Route(0): (chips[0][1][0], set([chips[0][1][0]])),
+			model.Route(0): (chips[(0,0)][1][0], set([chips[(0,0)][1][0]])),
 			
 			# Broadcast to all cores on a chip
-			model.Route(1): (chips[0][1][0], set(chips[0][1])),
+			model.Route(1): (chips[(0,0)][1][0], set(chips[(0,0)][1])),
 			
-			# Multicast messages from everyone from them to the next two chips
-			model.Route(2): (chips[0][1][0], set([chips[1][1][0], chips[1][1][1]])),
-			model.Route(3): (chips[1][1][0], set([chips[2][1][0], chips[3][1][1]])),
-			model.Route(4): (chips[2][1][0], set([chips[3][1][0], chips[0][1][1]])),
-			model.Route(5): (chips[3][1][0], set([chips[0][1][0], chips[1][1][1]])),
+			# Multicast messages from everyone from them to two other chips
+			model.Route(2): (chips[(0,0)][1][0], set([chips[(1,0)][1][0], chips[(1,1)][1][1]])),
+			model.Route(3): (chips[(1,0)][1][0], set([chips[(0,0)][1][0], chips[(0,1)][1][1]])),
+			model.Route(4): (chips[(0,1)][1][0], set([chips[(1,1)][1][0], chips[(1,0)][1][1]])),
+			model.Route(5): (chips[(1,1)][1][0], set([chips[(0,1)][1][0], chips[(0,0)][1][1]])),
 		}
 		
 		# Add the reference routes to the network
@@ -440,36 +438,33 @@ class UtilTests(unittest.TestCase):
 		that defining the route twice has no ill-effects).
 		"""
 		chips = model.make_rectangular_board(2,2)
-		chip_map = {}
-		for (router, core) in chips:
-			chip_map[router.position] = (router, core)
 		
 		# Make a path travelling round the system (do it twice to make sure nothing
 		# gets duplicated)
 		route = model.Route(0)
 		for _ in range(2):
 			model.add_route( route
-			               , [ chip_map[(0,0)][1][0]
-			                 , chip_map[(0,0)][0]
-			                 , chip_map[(0,1)][0]
-			                 , chip_map[(1,1)][0]
-			                 , chip_map[(1,0)][0]
-			                 , chip_map[(1,0)][1][17]
+			               , [ chips[(0,0)][1][0]
+			                 , chips[(0,0)][0]
+			                 , chips[(0,1)][0]
+			                 , chips[(1,1)][0]
+			                 , chips[(1,0)][0]
+			                 , chips[(1,0)][1][17]
 			                 ]
 			               )
 			model.add_route( route
-			               , [ chip_map[(0,0)][1][0]
-			                 , chip_map[(0,0)][0]
-			                 , chip_map[(0,1)][0]
-			                 , chip_map[(1,1)][0]
-			                 , chip_map[(1,1)][1][17]
+			               , [ chips[(0,0)][1][0]
+			                 , chips[(0,0)][0]
+			                 , chips[(0,1)][0]
+			                 , chips[(1,1)][0]
+			                 , chips[(1,1)][1][17]
 			                 ]
 			               )
 		
 		# Check that the route was added in the appropriate sink/source and nowhere
 		# else
 		for (position, core) in sum(( list((router.position, core) for core in cores)
-		                              for (router,cores) in chips
+		                              for (router,cores) in chips.itervalues()
 		                            ), []):
 			# Source should be in chip (0,0)'s 0th core
 			if position == (0,0) and core.core_id == 0:
@@ -486,7 +481,7 @@ class UtilTests(unittest.TestCase):
 		
 		# Check that all connecting edges between routers are valid (i.e. face in
 		# opposite directions and make sense)
-		for router, cores in chips:
+		for router, cores in chips.itervalues():
 			for route, (input_port, output_ports) in router.routes.iteritems():
 				# Test the input has a corresponding output in the router/core
 				if input_port in model.Router.INTERNAL_PORTS:
@@ -543,20 +538,19 @@ class RoutersTests(unittest.TestCase):
 			chips = model.make_rectangular_board(width, height, wrap_around = wrap_around)
 			for dimension_order in ( (0,1,2), (2,1,0) ):
 				for route, source, sinks in ( # Self-loop
-				                              (model.Route(0), chips[0][1][0], (  chips[0][1][0], )),
-				                              # XXX: The following assumes chips are ordered row-by-row
+				                              (model.Route(0), chips[(0,0)][1][0], ( chips[(0,0)][1][0], )),
 				                              # One-to-one (same row)
-				                              (model.Route(1), chips[0][1][0], (  chips[4][1][0], )),
+				                              (model.Route(1), chips[(0,0)][1][0], ( chips[(4,0)][1][0], )),
 				                              # One-to-one (different row)
-				                              (model.Route(2), chips[0][1][0], (  chips[5][1][0], )),
+				                              (model.Route(2), chips[(0,0)][1][0], ( chips[(2,1)][1][0], )),
 				                              # One-to-one (may use wrap-around)
-				                              (model.Route(3), chips[0][1][0], ( chips[24][1][0], )),
+				                              (model.Route(3), chips[(0,0)][1][0], ( chips[(4,4)][1][0], )),
 				                              # One-to-N
-				                              (model.Route(4), chips[0][1][0], (  chips[0][1][0]
-				                                                               ,  chips[4][1][0]
-				                                                               , chips[20][1][0]
-				                                                               , chips[24][1][0]
-				                                                               )),
+				                              (model.Route(4), chips[(0,0)][1][0], ( chips[(0,0)][1][0]
+				                                                                   , chips[(4,0)][1][0]
+				                                                                   , chips[(0,4)][1][0]
+				                                                                   , chips[(4,4)][1][0]
+				                                                                   )),
 				                            ):
 					node_sequences, unrouted_sinks = \
 						routers.dimension_order_route(route, source, sinks, chips
@@ -610,14 +604,13 @@ class RoutersTests(unittest.TestCase):
 		"""
 		# Create a square system with a hole in the x-axis for the 0th row of chips.
 		chips = model.make_rectangular_board(3, 1)
-		# XXX: Assumes order of the output of make_rectangular_board
-		chips[1][0].connections[topology.EAST] = None
+		chips[(1,0)][0].connections[topology.EAST] = None
 		
 		# Should not be able to route along the x axis of the system.
 		node_sequences, unrouted_sinks = \
 			routers.dimension_order_route( model.Route(0)
-			                             , chips[0][1][0]
-			                             , [chips[2][1][0]]
+			                             , chips[(0,0)][1][0]
+			                             , [chips[(2,0)][1][0]]
 			                             , chips
 			                             , use_wrap_around = False
 			                             , dimension_order = (0,1,2)
@@ -638,12 +631,7 @@ class TableGenTests(unittest.TestCase):
 		Create a small network with a few routes within it.
 		"""
 		
-		chips = model.make_rectangular_board(3,3)
-		
-		# Produce a mapping from position to router/cores
-		self.chips = {}
-		for router, cores in chips:
-			self.chips[router.position] = (router, cores)
+		self.chips = model.make_rectangular_board(3,3)
 		
 		# A self-loop on 0,1,0
 		model.add_route(model.Route(0), [ self.chips[(0,1)][1][0]
