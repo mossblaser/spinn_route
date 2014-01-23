@@ -239,6 +239,42 @@ class UtilTests(unittest.TestCase):
 				self.assertIsNone(router.connections[port])
 	
 	
+	def test_core_to_router(self):
+		"""
+		Test that the core-to-router function does what it says on the tin.
+		"""
+		router, cores = util.make_chip()
+		for core in cores:
+			self.assertEqual(util.core_to_router(core), router)
+	
+	
+	def test_is_path_connected(self):
+		"""
+		Test that the is_path_connected function works on a set of example cases.
+		"""
+		
+		chips = util.make_rectangular_board(4,1)
+		
+		for is_connected, path in [ # Self-loop
+		                            (True, [chips[0][1][0], chips[0][0], chips[0][1][0]]),
+		                            # From one end to another
+		                            (True, [ chips[0][1][10], chips[0][0], chips[1][0]
+		                                   , chips[2][0], chips[3][0], chips[3][1][11]
+		                                   ]),
+		                            # Reverse direction...
+		                            (True, [ chips[3][1][10], chips[3][0], chips[2][0]
+		                                   , chips[1][0], chips[0][0], chips[0][1][11]
+		                                   ]),
+		                            # Self loop without router
+		                            (False, [chips[0][1][0], chips[0][1][0]]),
+		                            # From one chip to another non-adjacent chip
+		                            (False, [ chips[0][1][10], chips[0][0]
+		                                    , chips[2][0], chips[2][1][11]
+		                                    ]),
+		                          ]:
+			self.assertEqual(is_connected, util.is_path_connected(path))
+	
+	
 	def test_fully_connect_chips_singleton_no_wrap_around(self):
 		"""
 		Test that util.fully_connect_chips doesn't add any connections to a
