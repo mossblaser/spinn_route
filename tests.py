@@ -13,6 +13,7 @@ import topology
 import model
 import util
 import routers
+import table_gen
 
 class TopologyTests(unittest.TestCase):
 	"""
@@ -625,6 +626,172 @@ class RoutersTests(unittest.TestCase):
 		
 		self.assertFalse(node_sequences)
 		self.assertEqual(len(unrouted_sinks), 1)
+
+
+
+class TableGenTests(unittest.TestCase):
+	"""
+	Tests the routing table generation facilities.
+	"""
+	
+	def setUp(self):
+		"""
+		Create a small network with a few routes within it.
+		"""
+		
+		chips = util.make_rectangular_board(3,3)
+		
+		# Produce a mapping from position to router/cores
+		self.chips = {}
+		for router, cores in chips:
+			self.chips[router.position] = (router, cores)
+		
+		# A self-loop on 0,1,0
+		util.add_route(model.Route(0), [ self.chips[(0,1)][1][0]
+		                               , self.chips[(0,1)][0]
+		                               , self.chips[(0,1)][1][0]
+		                               ])
+		
+		# A straight route from 0,0,0 to 2,0,0
+		util.add_route(model.Route(1), [ self.chips[(0,0)][1][0]
+		                               , self.chips[(0,0)][0]
+		                               , self.chips[(1,0)][0]
+		                               , self.chips[(2,0)][0]
+		                               , self.chips[(2,0)][1][0]
+		                               ])
+		
+		# A multicast from from 0,2,0 to 1,2,0,  2,2,0 and 1,1,0
+		r = model.Route(2)
+		util.add_route(r, [ self.chips[(0,2)][1][0]
+		                  , self.chips[(0,2)][0]
+		                  , self.chips[(1,2)][0]
+		                  , self.chips[(1,2)][1][0]
+		                  ])
+		util.add_route(r, [ self.chips[(0,2)][1][0]
+		                  , self.chips[(0,2)][0]
+		                  , self.chips[(1,2)][0]
+		                  , self.chips[(2,2)][0]
+		                  , self.chips[(2,2)][1][0]
+		                  ])
+		util.add_route(r, [ self.chips[(0,2)][1][0]
+		                  , self.chips[(0,2)][0]
+		                  , self.chips[(1,2)][0]
+		                  , self.chips[(1,1)][0]
+		                  , self.chips[(1,1)][1][0]
+		                  ])
+		
+		# A self-loop on 1,1,1 to result in 1,1 having multiple routing entries
+		util.add_route(model.Route(3), [ self.chips[(1,1)][1][1]
+		                               , self.chips[(1,1)][0]
+		                               , self.chips[(1,1)][1][1]
+		                               ])
+	
+	
+	def test_empty_router(self):
+		"""
+		Ensure an empty table is produced given an empty router.
+		"""
+		# Just the terminating 1s
+		self.assertEqual( table_gen.table_gen(self.chips[(2,1)][0])
+		                , "\xFF"*16
+		                )
+	
+	
+	def test_automatic_route(self):
+		"""
+		Ensure that routers only required to perform automatic routing are
+		ignored...
+		"""
+		# Just the terminating 1s
+		self.assertEqual( table_gen.table_gen(self.chips[(1,0)][0])
+		                , "\xFF"*16
+		                )
+	
+	
+	def test_self_loop(self):
+		"""
+		Ensure that routes sourced from a core and destined for another core come
+		out correctly.
+		"""
+		# Just the self-loop
+		self.assertEqual( table_gen.table_gen(self.chips[(0,1)][0])
+		                  # Index      # Num rows   # Route              # Key                # Mask
+		                , "\x00\x00" + "\x01\x00" + "\x40\x00\x00\x00" + "\x00\x00\x00\x00" + "\xFF\xFF\xFF\xFF"
+		                  + "\xFF"*16
+		                )
+	
+	
+	def test_enter_network(self):
+		"""
+		Ensure that routes sourced from a core and destined for another chip is
+		routed appropriately.
+		"""
+		# Just the entry route
+		self.assertEqual( table_gen.table_gen(self.chips[(0,0)][0])
+		                  # Index      # Num rows   # Route              # Key                # Mask
+		                , "\x00\x00" + "\x01\x00" + "\x01\x00\x00\x00" + "\x01\x00\x00\x00" + "\xFF\xFF\xFF\xFF"
+		                  + "\xFF"*16
+		                )
+	
+	
+	def test_leave_network(self):
+		"""
+		Ensure that routes sourced from another router and destined for a core
+		routed appropriately.
+		"""
+		# Just the exit route
+		self.assertEqual( table_gen.table_gen(self.chips[(2,0)][0])
+		                  # Index      # Num rows   # Route              # Key                # Mask
+		                , "\x00\x00" + "\x01\x00" + "\x40\x00\x00\x00" + "\x01\x00\x00\x00" + "\xFF\xFF\xFF\xFF"
+		                  + "\xFF"*16
+		                )
+	
+	
+	def test_fork(self):
+		"""
+		Ensure that routes fork successfully.
+		"""
+		# Should route to all three locations required.
+		self.assertEqual( table_gen.table_gen(self.chips[(1,2)][0])
+		                  # Index      # Num rows   # Route              # Key                # Mask
+		                , "\x00\x00" + "\x01\x00" + "\x61\x00\x00\x00" + "\x02\x00\x00\x00" + "\xFF\xFF\xFF\xFF"
+		                  + "\xFF"*16
+		                )
+	
+	
+	def test_multiple(self):
+		"""
+		Ensure that a router with multiple entries can exist
+		"""
+		table = table_gen.table_gen(self.chips[(1,1)][0])
+		
+		# Should have two router entries (plus a terminator)
+		self.assertEqual(len(table), 16*3)
+		self.assertEqual(table[-16:], "\xFF"*16)
+		
+		EXPECTED_ENTRIES = {
+			"\x02\x00\x00\x00": "\x40\x00\x00\x00",
+			"\x03\x00\x00\x00": "\x80\x00\x00\x00",
+		}
+		
+		for entry_num in range(2):
+			# Each routing entry should be numbered consecutively
+			self.assertEqual( table[entry_num*16:entry_num*16+4]
+			                , chr(entry_num) + "\x00\x02\x00"
+			                )
+			
+			# Check the router entry is as expected for the key (and only once)
+			self.assertEqual( EXPECTED_ENTRIES.pop(table[entry_num*16+8:entry_num*16+12], None)
+			                , table[entry_num*16+4:entry_num*16+8]
+			                )
+			
+			# Each entry should have an all-ones mask
+			self.assertEqual( table[entry_num*16+12:entry_num*16+16]
+			                , "\xFF\xFF\xFF\xFF"
+			                )
+		
+		# No expected entries were missing
+		self.assertEqual(len(EXPECTED_ENTRIES), 0)
 
 
 
