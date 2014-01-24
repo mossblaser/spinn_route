@@ -4,12 +4,11 @@
 Implementations of various routing algorithms. The routing algorithms feature
 the following interface::
 	
-	example(route, source_core, sink_chips, chips) --> ([node_sequence, ...], unrouted_sinks)
+	example(source_core, sink_cores, chips) --> ([node_sequence, ...], unrouted_sinks)
 
 Where:
-* route is the Route which will be routed
 * source_core is the Core where the route begins
-* sink_chips is a list of destinations for the route
+* sink_cores is a list of destinations for the route
 * chips is a list of (Router, [Core,...]) tuples which define the network
   within which to route.
 
@@ -27,7 +26,7 @@ import model
 import topology
 
 
-def dimension_order_route(route, source, sinks, chips, use_wrap_around = False, dimension_order=(0,1,2)):
+def dimension_order_route(source, sinks, chips, use_wrap_around = False, dimension_order=(0,1,2)):
 	"""
 	Simple, naive dimension order routing optionally supporting wrap-around links.
 	Note that when two DOR routes exist of equivalent length, one will be chosen

@@ -553,7 +553,7 @@ class RoutersTests(unittest.TestCase):
 				                                                                   )),
 				                            ):
 					node_sequences, unrouted_sinks = \
-						routers.dimension_order_route(route, source, sinks, chips
+						routers.dimension_order_route(source, sinks, chips
 						                             , use_wrap_around = wrap_around
 						                             , dimension_order = dimension_order
 						                             )
@@ -608,8 +608,7 @@ class RoutersTests(unittest.TestCase):
 		
 		# Should not be able to route along the x axis of the system.
 		node_sequences, unrouted_sinks = \
-			routers.dimension_order_route( model.Route(0)
-			                             , chips[(0,0)][1][0]
+			routers.dimension_order_route( chips[(0,0)][1][0]
 			                             , [chips[(2,0)][1][0]]
 			                             , chips
 			                             , use_wrap_around = False
