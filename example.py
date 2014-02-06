@@ -45,7 +45,7 @@ for routing_key, source_core in enumerate(all_cores):
 
 # Write out routing tables for all routers
 for position, (router, cores) in chips.iteritems():
-	table = table_gen.table_gen(router)
+	table = table_gen.ybug_table_gen(router)
 	
 	with open("routing_table_%d_%d.bin"%position, "wb") as f:
 		f.write(table)

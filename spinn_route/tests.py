@@ -678,7 +678,7 @@ class TableGenTests(unittest.TestCase):
 		Ensure an empty table is produced given an empty router.
 		"""
 		# Just the terminating 1s
-		self.assertEqual( table_gen.table_gen(self.chips[(2,1)][0])
+		self.assertEqual( table_gen.ybug_table_gen(self.chips[(2,1)][0])
 		                , "\xFF"*16
 		                )
 	
@@ -689,7 +689,7 @@ class TableGenTests(unittest.TestCase):
 		ignored...
 		"""
 		# Just the terminating 1s
-		self.assertEqual( table_gen.table_gen(self.chips[(1,0)][0])
+		self.assertEqual( table_gen.ybug_table_gen(self.chips[(1,0)][0])
 		                , "\xFF"*16
 		                )
 	
@@ -700,7 +700,7 @@ class TableGenTests(unittest.TestCase):
 		out correctly.
 		"""
 		# Just the self-loop
-		self.assertEqual( table_gen.table_gen(self.chips[(0,1)][0])
+		self.assertEqual( table_gen.ybug_table_gen(self.chips[(0,1)][0])
 		                  # Index      # Num rows   # Route              # Key                # Mask
 		                , "\x00\x00" + "\x01\x00" + "\x40\x00\x00\x00" + "\x00\x00\x00\x00" + "\xFF\xFF\xFF\xFF"
 		                  + "\xFF"*16
@@ -713,7 +713,7 @@ class TableGenTests(unittest.TestCase):
 		routed appropriately.
 		"""
 		# Just the entry route
-		self.assertEqual( table_gen.table_gen(self.chips[(0,0)][0])
+		self.assertEqual( table_gen.ybug_table_gen(self.chips[(0,0)][0])
 		                  # Index      # Num rows   # Route              # Key                # Mask
 		                , "\x00\x00" + "\x01\x00" + "\x01\x00\x00\x00" + "\x01\x00\x00\x00" + "\xFF\xFF\xFF\xFF"
 		                  + "\xFF"*16
@@ -726,7 +726,7 @@ class TableGenTests(unittest.TestCase):
 		routed appropriately.
 		"""
 		# Just the exit route
-		self.assertEqual( table_gen.table_gen(self.chips[(2,0)][0])
+		self.assertEqual( table_gen.ybug_table_gen(self.chips[(2,0)][0])
 		                  # Index      # Num rows   # Route              # Key                # Mask
 		                , "\x00\x00" + "\x01\x00" + "\x40\x00\x00\x00" + "\x01\x00\x00\x00" + "\xFF\xFF\xFF\xFF"
 		                  + "\xFF"*16
@@ -738,7 +738,7 @@ class TableGenTests(unittest.TestCase):
 		Ensure that routes fork successfully.
 		"""
 		# Should route to all three locations required.
-		self.assertEqual( table_gen.table_gen(self.chips[(1,2)][0])
+		self.assertEqual( table_gen.ybug_table_gen(self.chips[(1,2)][0])
 		                  # Index      # Num rows   # Route              # Key                # Mask
 		                , "\x00\x00" + "\x01\x00" + "\x61\x00\x00\x00" + "\x02\x00\x00\x00" + "\xFF\xFF\xFF\xFF"
 		                  + "\xFF"*16
@@ -749,7 +749,7 @@ class TableGenTests(unittest.TestCase):
 		"""
 		Ensure that a router with multiple entries can exist
 		"""
-		table = table_gen.table_gen(self.chips[(1,1)][0])
+		table = table_gen.ybug_table_gen(self.chips[(1,1)][0])
 		
 		# Should have two router entries (plus a terminator)
 		self.assertEqual(len(table), 16*3)
