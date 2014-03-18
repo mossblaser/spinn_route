@@ -150,7 +150,7 @@ def make_chip(chip_position = (0,0), chip_board = (0,0), num_cores = 18):
 	
 	# Create the router and cores
 	router = Router(chip_position, chip_board)
-	cores = [Core(core_id) for core_id in range(num_cores)]
+	cores = dict((core_id, Core(core_id)) for core_id in range(num_cores))
 	
 	# Connect everything up
 	for core_id in range(num_cores):
@@ -261,14 +261,14 @@ def get_all_routes(chips):
 	
 	# Find all the routes (and sources)
 	for router, cores in chips.itervalues():
-		for core in cores:
+		for core in cores.itervalues():
 			for route in core.sources:
 				assert(route not in routes)
 				routes[route] = (core, set())
 	
 	# Fill in the sinks
 	for router, cores in chips.itervalues():
-		for core in cores:
+		for core in cores.itervalues():
 			for route in core.sinks:
 				routes[route][1].add(core)
 	

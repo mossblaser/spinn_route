@@ -224,7 +224,7 @@ class UtilTests(unittest.TestCase):
 			self.assertEqual(len(cores), num_cores)
 			
 			# The cores are connected correctly
-			for core in cores:
+			for core in cores.itervalues():
 				# Core connects to router
 				self.assertEqual( core.connections[model.Core.NETWORK_PORT]
 				                , router
@@ -244,7 +244,7 @@ class UtilTests(unittest.TestCase):
 		Test that the core-to-router function does what it says on the tin.
 		"""
 		router, cores = model.make_chip()
-		for core in cores:
+		for core in cores.itervalues():
 			self.assertEqual(model.core_to_router(core), router)
 	
 	
@@ -409,7 +409,7 @@ class UtilTests(unittest.TestCase):
 			model.Route(0): (chips[(0,0)].cores[0], set([chips[(0,0)].cores[0]])),
 			
 			# Broadcast to all cores on a chip
-			model.Route(1): (chips[(0,0)].cores[0], set(chips[(0,0)].cores)),
+			model.Route(1): (chips[(0,0)].cores[0], set(chips[(0,0)].cores.itervalues())),
 			
 			# Multicast messages from everyone from them to two other chips
 			model.Route(2): (chips[(0,0)].cores[0], set([chips[(1,0)].cores[0], chips[(1,1)].cores[1]])),
@@ -463,7 +463,7 @@ class UtilTests(unittest.TestCase):
 		
 		# Check that the route was added in the appropriate sink/source and nowhere
 		# else
-		for (position, core) in sum(( list((router.position, core) for core in cores)
+		for (position, core) in sum(( list((router.position, core) for core in cores.itervalues())
 		                              for (router,cores) in chips.itervalues()
 		                            ), []):
 			# Source should be in chip (0,0)'s 0th core
