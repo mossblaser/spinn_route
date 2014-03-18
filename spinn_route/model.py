@@ -182,7 +182,7 @@ def fully_connect_chips(chips, wrap_around = False):
 			
 			# Only connect up to nodes which actually exist...
 			if (next_x, next_y) in chips:
-				router.connect(direction, chips[(next_x, next_y)][0], topology.opposite(direction))
+				router.connect(direction, chips[(next_x, next_y)].router, topology.opposite(direction))
 
 
 def make_rectangular_board(width = 2, height = 2, wrap_around = False, board = (0,0), num_cores = 18):

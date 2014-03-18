@@ -256,20 +256,20 @@ class UtilTests(unittest.TestCase):
 		chips = model.make_rectangular_board(4,1)
 		
 		for is_connected, path in [ # Self-loop
-		                            (True, [chips[(0,0)][1][0], chips[(0,0)][0], chips[(0,0)][1][0]]),
+		                            (True, [chips[(0,0)].cores[0], chips[(0,0)].router, chips[(0,0)].cores[0]]),
 		                            # From one end to another
-		                            (True, [ chips[(0,0)][1][10], chips[(0,0)][0], chips[(1,0)][0]
-		                                   , chips[(2,0)][0], chips[(3,0)][0], chips[(3,0)][1][11]
+		                            (True, [ chips[(0,0)].cores[10], chips[(0,0)].router, chips[(1,0)].router
+		                                   , chips[(2,0)].router, chips[(3,0)].router, chips[(3,0)].cores[11]
 		                                   ]),
 		                            # Reverse direction...
-		                            (True, [ chips[(3,0)][1][10], chips[(3,0)][0], chips[(2,0)][0]
-		                                   , chips[(1,0)][0], chips[(0,0)][0], chips[(0,0)][1][11]
+		                            (True, [ chips[(3,0)].cores[10], chips[(3,0)].router, chips[(2,0)].router
+		                                   , chips[(1,0)].router, chips[(0,0)].router, chips[(0,0)].cores[11]
 		                                   ]),
 		                            # Self loop without router
-		                            (False, [chips[(0,0)][1][0], chips[(0,0)][1][0]]),
+		                            (False, [chips[(0,0)].cores[0], chips[(0,0)].cores[0]]),
 		                            # From one chip to another non-adjacent chip
-		                            (False, [ chips[(0,0)][1][10], chips[(0,0)][0]
-		                                    , chips[(2,0)][0], chips[(2,0)][1][11]
+		                            (False, [ chips[(0,0)].cores[10], chips[(0,0)].router
+		                                    , chips[(2,0)].router, chips[(2,0)].cores[11]
 		                                    ]),
 		                          ]:
 			self.assertEqual(is_connected, model.is_path_connected(path))
@@ -285,7 +285,7 @@ class UtilTests(unittest.TestCase):
 		
 		# No external ports are connected
 		for port in model.Router.EXTERNAL_PORTS:
-			self.assertIsNone(chips[(0,0)][0].connections[port])
+			self.assertIsNone(chips[(0,0)].router.connections[port])
 	
 	
 	def test_fully_connect_chips_singleton_wrap_around(self):
@@ -298,8 +298,8 @@ class UtilTests(unittest.TestCase):
 		
 		# All connections are wrapped around
 		for port in model.Router.EXTERNAL_PORTS:
-			self.assertEqual( chips[(0,0)][0].connections[port]
-			                , chips[(0,0)][0]
+			self.assertEqual( chips[(0,0)].router.connections[port]
+			                , chips[(0,0)].router
 			                )
 	
 	
@@ -326,16 +326,16 @@ class UtilTests(unittest.TestCase):
 			for port in model.Router.EXTERNAL_PORTS:
 				if port == direction:
 					# Touching port
-					self.assertEqual( chips[(0,0)][0].connections[port]
-					                , chips[other_chip_position][0]
+					self.assertEqual( chips[(0,0)].router.connections[port]
+					                , chips[other_chip_position].router
 					                )
-					self.assertEqual( chips[other_chip_position][0].connections[topology.opposite(port)]
-					                , chips[(0,0)][0]
+					self.assertEqual( chips[other_chip_position].router.connections[topology.opposite(port)]
+					                , chips[(0,0)].router
 					                )
 				else:
 					# Non-touching port
-					self.assertIsNone(chips[(0,0)][0].connections[port])
-					self.assertIsNone(chips[other_chip_position][0].connections[topology.opposite(port)])
+					self.assertIsNone(chips[(0,0)].router.connections[port])
+					self.assertIsNone(chips[other_chip_position].router.connections[topology.opposite(port)])
 	
 	
 	def test_make_rectangular_board(self):
@@ -406,16 +406,16 @@ class UtilTests(unittest.TestCase):
 		# A set of test routes
 		ref_routes = {
 			# Unicast self loop
-			model.Route(0): (chips[(0,0)][1][0], set([chips[(0,0)][1][0]])),
+			model.Route(0): (chips[(0,0)].cores[0], set([chips[(0,0)].cores[0]])),
 			
 			# Broadcast to all cores on a chip
-			model.Route(1): (chips[(0,0)][1][0], set(chips[(0,0)][1])),
+			model.Route(1): (chips[(0,0)].cores[0], set(chips[(0,0)].cores)),
 			
 			# Multicast messages from everyone from them to two other chips
-			model.Route(2): (chips[(0,0)][1][0], set([chips[(1,0)][1][0], chips[(1,1)][1][1]])),
-			model.Route(3): (chips[(1,0)][1][0], set([chips[(0,0)][1][0], chips[(0,1)][1][1]])),
-			model.Route(4): (chips[(0,1)][1][0], set([chips[(1,1)][1][0], chips[(1,0)][1][1]])),
-			model.Route(5): (chips[(1,1)][1][0], set([chips[(0,1)][1][0], chips[(0,0)][1][1]])),
+			model.Route(2): (chips[(0,0)].cores[0], set([chips[(1,0)].cores[0], chips[(1,1)].cores[1]])),
+			model.Route(3): (chips[(1,0)].cores[0], set([chips[(0,0)].cores[0], chips[(0,1)].cores[1]])),
+			model.Route(4): (chips[(0,1)].cores[0], set([chips[(1,1)].cores[0], chips[(1,0)].cores[1]])),
+			model.Route(5): (chips[(1,1)].cores[0], set([chips[(0,1)].cores[0], chips[(0,0)].cores[1]])),
 		}
 		
 		# Add the reference routes to the network
@@ -444,20 +444,20 @@ class UtilTests(unittest.TestCase):
 		route = model.Route(0)
 		for _ in range(2):
 			model.add_route( route
-			               , [ chips[(0,0)][1][0]
-			                 , chips[(0,0)][0]
-			                 , chips[(0,1)][0]
-			                 , chips[(1,1)][0]
-			                 , chips[(1,0)][0]
-			                 , chips[(1,0)][1][17]
+			               , [ chips[(0,0)].cores[0]
+			                 , chips[(0,0)].router
+			                 , chips[(0,1)].router
+			                 , chips[(1,1)].router
+			                 , chips[(1,0)].router
+			                 , chips[(1,0)].cores[17]
 			                 ]
 			               )
 			model.add_route( route
-			               , [ chips[(0,0)][1][0]
-			                 , chips[(0,0)][0]
-			                 , chips[(0,1)][0]
-			                 , chips[(1,1)][0]
-			                 , chips[(1,1)][1][17]
+			               , [ chips[(0,0)].cores[0]
+			                 , chips[(0,0)].router
+			                 , chips[(0,1)].router
+			                 , chips[(1,1)].router
+			                 , chips[(1,1)].cores[17]
 			                 ]
 			               )
 		
@@ -538,18 +538,18 @@ class RoutersTests(unittest.TestCase):
 			chips = model.make_rectangular_board(width, height, wrap_around = wrap_around)
 			for dimension_order in ( (0,1,2), (2,1,0) ):
 				for route, source, sinks in ( # Self-loop
-				                              (model.Route(0), chips[(0,0)][1][0], ( chips[(0,0)][1][0], )),
+				                              (model.Route(0), chips[(0,0)].cores[0], ( chips[(0,0)].cores[0], )),
 				                              # One-to-one (same row)
-				                              (model.Route(1), chips[(0,0)][1][0], ( chips[(4,0)][1][0], )),
+				                              (model.Route(1), chips[(0,0)].cores[0], ( chips[(4,0)].cores[0], )),
 				                              # One-to-one (different row)
-				                              (model.Route(2), chips[(0,0)][1][0], ( chips[(2,1)][1][0], )),
+				                              (model.Route(2), chips[(0,0)].cores[0], ( chips[(2,1)].cores[0], )),
 				                              # One-to-one (may use wrap-around)
-				                              (model.Route(3), chips[(0,0)][1][0], ( chips[(4,4)][1][0], )),
+				                              (model.Route(3), chips[(0,0)].cores[0], ( chips[(4,4)].cores[0], )),
 				                              # One-to-N
-				                              (model.Route(4), chips[(0,0)][1][0], ( chips[(0,0)][1][0]
-				                                                                   , chips[(4,0)][1][0]
-				                                                                   , chips[(0,4)][1][0]
-				                                                                   , chips[(4,4)][1][0]
+				                              (model.Route(4), chips[(0,0)].cores[0], ( chips[(0,0)].cores[0]
+				                                                                   , chips[(4,0)].cores[0]
+				                                                                   , chips[(0,4)].cores[0]
+				                                                                   , chips[(4,4)].cores[0]
 				                                                                   )),
 				                            ):
 					node_sequences, unrouted_sinks = \
@@ -604,12 +604,12 @@ class RoutersTests(unittest.TestCase):
 		"""
 		# Create a square system with a hole in the x-axis for the 0th row of chips.
 		chips = model.make_rectangular_board(3, 1)
-		chips[(1,0)][0].connections[topology.EAST] = None
+		chips[(1,0)].router.connections[topology.EAST] = None
 		
 		# Should not be able to route along the x axis of the system.
 		node_sequences, unrouted_sinks = \
-			routers.dimension_order_route( chips[(0,0)][1][0]
-			                             , [chips[(2,0)][1][0]]
+			routers.dimension_order_route( chips[(0,0)].cores[0]
+			                             , [chips[(2,0)].cores[0]]
 			                             , chips
 			                             , use_wrap_around = False
 			                             , dimension_order = (0,1,2)
@@ -633,43 +633,43 @@ class TableGenTests(unittest.TestCase):
 		self.chips = model.make_rectangular_board(3,3)
 		
 		# A self-loop on 0,1,0
-		model.add_route(model.Route(0), [ self.chips[(0,1)][1][0]
-		                                , self.chips[(0,1)][0]
-		                                , self.chips[(0,1)][1][0]
+		model.add_route(model.Route(0), [ self.chips[(0,1)].cores[0]
+		                                , self.chips[(0,1)].router
+		                                , self.chips[(0,1)].cores[0]
 		                                ])
 		
 		# A straight route from 0,0,0 to 2,0,0
-		model.add_route(model.Route(1), [ self.chips[(0,0)][1][0]
-		                                , self.chips[(0,0)][0]
-		                                , self.chips[(1,0)][0]
-		                                , self.chips[(2,0)][0]
-		                                , self.chips[(2,0)][1][0]
+		model.add_route(model.Route(1), [ self.chips[(0,0)].cores[0]
+		                                , self.chips[(0,0)].router
+		                                , self.chips[(1,0)].router
+		                                , self.chips[(2,0)].router
+		                                , self.chips[(2,0)].cores[0]
 		                                ])
 		
 		# A multicast from from 0,2,0 to 1,2,0,  2,2,0 and 1,1,0
 		r = model.Route(2)
-		model.add_route(r, [ self.chips[(0,2)][1][0]
-		                   , self.chips[(0,2)][0]
-		                   , self.chips[(1,2)][0]
-		                   , self.chips[(1,2)][1][0]
+		model.add_route(r, [ self.chips[(0,2)].cores[0]
+		                   , self.chips[(0,2)].router
+		                   , self.chips[(1,2)].router
+		                   , self.chips[(1,2)].cores[0]
 		                   ])
-		model.add_route(r, [ self.chips[(0,2)][1][0]
-		                   , self.chips[(0,2)][0]
-		                   , self.chips[(1,2)][0]
-		                   , self.chips[(2,2)][0]
-		                   , self.chips[(2,2)][1][0]
+		model.add_route(r, [ self.chips[(0,2)].cores[0]
+		                   , self.chips[(0,2)].router
+		                   , self.chips[(1,2)].router
+		                   , self.chips[(2,2)].router
+		                   , self.chips[(2,2)].cores[0]
 		                   ])
-		model.add_route(r, [ self.chips[(0,2)][1][0]
-		                   , self.chips[(0,2)][0]
-		                   , self.chips[(1,2)][0]
-		                   , self.chips[(1,1)][0]
-		                   , self.chips[(1,1)][1][0]
+		model.add_route(r, [ self.chips[(0,2)].cores[0]
+		                   , self.chips[(0,2)].router
+		                   , self.chips[(1,2)].router
+		                   , self.chips[(1,1)].router
+		                   , self.chips[(1,1)].cores[0]
 		                   ])
 		
 		# A self-loop on 1,1,1 to result in 1,1 having multiple routing entries
-		model.add_route(model.Route(3), [ self.chips[(1,1)][1][1]
-		                                , self.chips[(1,1)][0]
-		                                , self.chips[(1,1)][1][1]
+		model.add_route(model.Route(3), [ self.chips[(1,1)].cores[1]
+		                                , self.chips[(1,1)].router
+		                                , self.chips[(1,1)].cores[1]
 		                                ])
 	
 	
@@ -678,7 +678,7 @@ class TableGenTests(unittest.TestCase):
 		Ensure an empty table is produced given an empty router.
 		"""
 		# Just the terminating 1s
-		self.assertEqual( table_gen.ybug_table_gen(self.chips[(2,1)][0])
+		self.assertEqual( table_gen.ybug_table_gen(self.chips[(2,1)].router)
 		                , "\xFF"*16
 		                )
 	
@@ -689,7 +689,7 @@ class TableGenTests(unittest.TestCase):
 		ignored...
 		"""
 		# Just the terminating 1s
-		self.assertEqual( table_gen.ybug_table_gen(self.chips[(1,0)][0])
+		self.assertEqual( table_gen.ybug_table_gen(self.chips[(1,0)].router)
 		                , "\xFF"*16
 		                )
 	
@@ -700,7 +700,7 @@ class TableGenTests(unittest.TestCase):
 		out correctly.
 		"""
 		# Just the self-loop
-		self.assertEqual( table_gen.ybug_table_gen(self.chips[(0,1)][0])
+		self.assertEqual( table_gen.ybug_table_gen(self.chips[(0,1)].router)
 		                  # Index      # Num rows   # Route              # Key                # Mask
 		                , "\x00\x00" + "\x01\x00" + "\x40\x00\x00\x00" + "\x00\x00\x00\x00" + "\xFF\xFF\xFF\xFF"
 		                  + "\xFF"*16
@@ -713,7 +713,7 @@ class TableGenTests(unittest.TestCase):
 		routed appropriately.
 		"""
 		# Just the entry route
-		self.assertEqual( table_gen.ybug_table_gen(self.chips[(0,0)][0])
+		self.assertEqual( table_gen.ybug_table_gen(self.chips[(0,0)].router)
 		                  # Index      # Num rows   # Route              # Key                # Mask
 		                , "\x00\x00" + "\x01\x00" + "\x01\x00\x00\x00" + "\x01\x00\x00\x00" + "\xFF\xFF\xFF\xFF"
 		                  + "\xFF"*16
@@ -726,7 +726,7 @@ class TableGenTests(unittest.TestCase):
 		routed appropriately.
 		"""
 		# Just the exit route
-		self.assertEqual( table_gen.ybug_table_gen(self.chips[(2,0)][0])
+		self.assertEqual( table_gen.ybug_table_gen(self.chips[(2,0)].router)
 		                  # Index      # Num rows   # Route              # Key                # Mask
 		                , "\x00\x00" + "\x01\x00" + "\x40\x00\x00\x00" + "\x01\x00\x00\x00" + "\xFF\xFF\xFF\xFF"
 		                  + "\xFF"*16
@@ -738,7 +738,7 @@ class TableGenTests(unittest.TestCase):
 		Ensure that routes fork successfully.
 		"""
 		# Should route to all three locations required.
-		self.assertEqual( table_gen.ybug_table_gen(self.chips[(1,2)][0])
+		self.assertEqual( table_gen.ybug_table_gen(self.chips[(1,2)].router)
 		                  # Index      # Num rows   # Route              # Key                # Mask
 		                , "\x00\x00" + "\x01\x00" + "\x61\x00\x00\x00" + "\x02\x00\x00\x00" + "\xFF\xFF\xFF\xFF"
 		                  + "\xFF"*16
@@ -749,7 +749,7 @@ class TableGenTests(unittest.TestCase):
 		"""
 		Ensure that a router with multiple entries can exist
 		"""
-		table = table_gen.ybug_table_gen(self.chips[(1,1)][0])
+		table = table_gen.ybug_table_gen(self.chips[(1,1)].router)
 		
 		# Should have two router entries (plus a terminator)
 		self.assertEqual(len(table), 16*3)

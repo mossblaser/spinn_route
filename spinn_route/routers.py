@@ -76,7 +76,7 @@ def dimension_order_route(source, sinks, chips, use_wrap_around = False, dimensi
 				x %= width
 				y %= height
 				
-				node_sequence.append(chips[(x,y)][0])
+				node_sequence.append(chips[(x,y)].router)
 		
 		# Add the sink
 		node_sequence.append(sink)
