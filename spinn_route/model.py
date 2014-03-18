@@ -7,6 +7,10 @@ and routers with multicast routes mapped out within it.
 
 import topology
 
+from collections import namedtuple
+
+Chip = namedtuple("Chip", ["router","cores"])
+
 
 class Route(object):
 	"""
@@ -154,7 +158,7 @@ def make_chip(chip_position = (0,0), chip_board = (0,0), num_cores = 18):
 		              , cores[core_id], Core.NETWORK_PORT
 		              )
 	
-	return (router, cores)
+	return Chip(router, cores)
 
 
 def fully_connect_chips(chips, wrap_around = False):
