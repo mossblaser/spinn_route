@@ -107,37 +107,58 @@ def to_xyz(vector):
 	return (vector[0], vector[1], 0)
 
 
-def to_torus_shortest_path(source, target, system_size):
+def to_torus_shortest_path(src, dst, bounds = None):
 	"""
-	Given two 2D coordinates (source and target) and the size of the system,
-	return the 3D vector giving the shortest path in a torus of the given size
-	from the source to the target.
+	Gets the shortest path from src to dst.
+	
+	If bounds is given it must be a 2-tuple specifying the (x,y) dimensions of the
+	mesh size. The path will then be allowed to 'wrap-around', otherwise it will
+	not.
+	
+	This algorithm is based on the one used by INSEE.
 	"""
-	
-	# A terrible hack (inherited from gollywhomper). Re-center the world either so
-	# the source is in the bottom left corner, the center or the top/right of the
-	# system. For each, compute the shortest vector in the same way you would for
-	# a normal grid. Pick the one of these which wins.
-	best_path = None
-	for center in [ (0,0)
-	              , (system_size[0]/2, system_size[1]/2)
-	              , (system_size[0]-1, system_size[1]-1)
-	              ]:
-		s = (center[0], center[1], 0)
-		t = ( ((target[0] - source[0]) + center[0]) % system_size[0]
-		    , ((target[1] - source[1]) + center[1]) % system_size[1]
-		    , 0
-		    )
-		
-		path = to_shortest_path(( t[0] - s[0]
-		                        , t[1] - s[1]
-		                        , t[2] - s[2]
-		                        ))
-		# Keep the best candidate
-		if best_path is None or manhattan(path) < manhattan(best_path):
-			best_path = path
-	
-	return best_path
+	assert(len(src) == len(dst) == 2)
+	assert(bounds is None or len(bounds) == 2)
+
+	# Special case for self-loop
+	if src == dst:
+		return (0,0,0)
+
+	# The distances between s and t for non-wrapping and always wrapping routes
+	# for x and y axes respectively.
+	dx_nw = dst[0] - src[0]
+	dy_nw = dst[1] - src[1]
+	dx_aw = (dx_nw - bounds[0]) if (dx_nw > 0) else (dx_nw + bounds[0])
+	dy_aw = (dy_nw - bounds[1]) if (dy_nw > 0) else (dy_nw + bounds[1])
+
+	best_vect = None
+	def try_vect(vect):
+		if best_vect is None or manhattan(vect) < manhattan(best_vect):
+			return vect
+		else:
+			return best_vect
+
+	# Try the non-wrapping possibilities using only x,z, y,z and x,y
+	best_vect = try_vect((dx_nw - dy_nw, 0, -dy_nw))
+	best_vect = try_vect((0, dy_nw - dx_nw, -dx_nw))
+	best_vect = try_vect((dx_nw, dy_nw, 0))
+
+	# Try the x-non-wrapping, y-wrapping possibilities using only x,z, y,z and x,y
+	best_vect = try_vect((dx_nw - dy_aw, 0, -dy_aw))
+	best_vect = try_vect((0, dy_aw - dx_nw, -dx_nw))
+	best_vect = try_vect((dx_nw, dy_aw, 0))
+
+	# Try the x-wrapping, y-non-wrapping possibilities using only x,z, y,z and x,y
+	best_vect = try_vect((dx_aw - dy_nw, 0, -dy_nw))
+	best_vect = try_vect((0, dy_nw - dx_aw, -dx_aw))
+	best_vect = try_vect((dx_aw, dy_nw, 0))
+
+	# Try the x-wrapping, y-wrapping possibilities using only x,z, y,z and x,y
+	best_vect = try_vect((dx_aw - dy_aw, 0, -dy_aw))
+	best_vect = try_vect((0, dy_aw - dx_aw, -dx_aw))
+	best_vect = try_vect((dx_aw, dy_aw, 0))
+
+	return best_vect;
 
 
 ################################################################################
