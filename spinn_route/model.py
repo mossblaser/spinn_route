@@ -23,6 +23,9 @@ class Route(object):
 	
 	def __repr__(self):
 		return "Route(%s)"%(repr(self.key))
+	
+	def __lt__(self, other):
+		return self.key < other.key
 
 
 class Node(object):
